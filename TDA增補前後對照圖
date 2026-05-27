@@ -1,0 +1,189 @@
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.patches import Rectangle, Polygon
+from matplotlib.patches import FancyBboxPatch
+import matplotlib.patches as patches
+
+plt.rcParams['font.sans-serif'] = ['Microsoft YaHei', 'SimHei', 'Arial Unicode MS']
+plt.rcParams['axes.unicode_minus'] = False
+
+def create_3d_printing_object(ax, x, y, width, height, color='#80c0ff', label=""):
+    """繪製3D列印物件"""
+    rect = Rectangle((x, y), width, height, facecolor=color, edgecolor='black', linewidth=1.5)
+    ax.add_patch(rect)
+    if label:
+        ax.text(x + width/2, y + height/2, label, ha='center', va='center', fontsize=8, fontweight='bold')
+
+
+def add_noise_and_lighting(ax, noise_type, intensity=0.1):
+    """添加雜訊與光影效果"""
+    if noise_type == 'gaussian':
+        # 高斯雜訊（模擬感測器雜訊）
+        y, x = np.ogrid[:ax.get_ylim()[1], :ax.get_xlim()[1]]
+        noise = np.random.normal(0, intensity*255, (int(ax.get_ylim()[1]), int(ax.get_xlim()[1])))
+        ax.imshow(noise, alpha=0.3, cmap='gray', extent=[0, 100, 0, 100])
+    elif noise_type == 'shadow':
+        # 陰影遮罩（模擬噴頭遮蔽）
+        shadow = patches.Polygon([[20, 60], [50, 80], [80, 60], [80, 40], [50, 20], [20, 40]], 
+                                  facecolor='gray', alpha=0.4)
+        ax.add_patch(shadow)
+    elif noise_type == 'specular':
+        # 鏡面反射（PLA材質）
+        highlight = patches.Ellipse((70, 70), 15, 10, facecolor='white', alpha=0.6)
+        ax.add_patch(highlight)
+
+
+def add_layer_shifting(ax, shift_x, shift_y, shift_start_y):
+    """添加層位移瑕疵"""
+    # 位移界線上方物件（偏移）
+    upper = Rectangle((35 + shift_x, shift_start_y + 5), 40, 25, 
+                      facecolor='#ff8888', edgecolor='black', linewidth=1.5)
+    ax.add_patch(upper)
+    # 標示位移界線
+    ax.plot([30, 80], [shift_start_y, shift_start_y], 'r--', linewidth=2)
+    ax.text(55, shift_start_y - 3, '位移界面', ha='center', color='red', fontsize=9)
+
+
+def add_warping(ax, warp_side='left'):
+    """添加翹曲瑕疵"""
+    if warp_side == 'left':
+        # 左側邊緣翹曲
+        warp = Polygon([[30, 20], [45, 22], [45, 60], [30, 60]], 
+                       facecolor='#ff8888', edgecolor='black', linewidth=1.5)
+        ax.add_patch(warp)
+        ax.annotate('', xy=(30, 65), xytext=(45, 65), arrowprops=dict(arrowstyle='->', color='red'))
+        ax.text(37, 68, '翹曲', ha='center', color='red', fontsize=9)
+
+
+def add_stringing(ax):
+    """添加拉絲瑕疵"""
+    # 絲狀結構
+    for i, (x_start, y_start, x_end, y_end) in enumerate([
+        (75, 55, 90, 65), (78, 50, 92, 58), (72, 45, 88, 55),
+        (35, 30, 25, 20), (38, 28, 22, 18)
+    ]):
+        ax.plot([x_start, x_end], [y_start, y_end], 'r-', linewidth=1.5, alpha=0.8)
+    ax.text(85, 68, '拉絲', ha='center', color='red', fontsize=9)
+
+
+def add_cracking(ax):
+    """添加裂紋瑕疵"""
+    # 裂紋線條
+    crack_points = [(40, 35), (52, 38), (58, 36), (65, 40), (70, 38)]
+    xs, ys = zip(*crack_points)
+    ax.plot(xs, ys, 'r-', linewidth=2)
+    ax.plot([70, 75], [38, 42], 'r-', linewidth=1.5)
+    ax.text(55, 45, '裂紋', ha='center', color='red', fontsize=9)
+
+
+def add_off_platform(ax):
+    """添加偏離平台瑕疵"""
+    # 脫離物件
+    obj = Rectangle((60, 25), 35, 30, facecolor='#ff8888', edgecolor='black', linewidth=1.5)
+    ax.add_patch(obj)
+    # 原始位置（虛線）
+    orig = Rectangle((35, 25), 35, 30, facecolor='none', edgecolor='gray', linestyle='--', linewidth=1.5)
+    ax.add_patch(orig)
+    ax.annotate('', xy=(60, 40), xytext=(35, 40), arrowprops=dict(arrowstyle='->', color='red'))
+    ax.text(47, 20, '脫離位移', ha='center', color='red', fontsize=9)
+
+
+# 建立六類瑕疵之TDA增補對照圖
+def create_tda_comparison(defect_type, title):
+    """建立單一瑕疵類別之TDA增補前後對照圖"""
+    fig, axes = plt.subplots(1, 4, figsize=(12, 3.5))
+    
+    # 原始正常樣本
+    ax = axes[0]
+    ax.set_xlim(0, 100)
+    ax.set_ylim(0, 100)
+    ax.set_facecolor('#f0f0f0')
+    create_3d_printing_object(ax, 35, 25, 45, 50, color='#80c0ff')
+    platform = Rectangle((25, 15), 65, 10, facecolor='#c0c0c0', edgecolor='black')
+    ax.add_patch(platform)
+    ax.set_title('(a) 原始正常樣本', fontsize=10)
+    ax.axis('off')
+    
+    # 疊加瑕疵態樣
+    ax = axes[1]
+    ax.set_xlim(0, 100)
+    ax.set_ylim(0, 100)
+    ax.set_facecolor('#f0f0f0')
+    create_3d_printing_object(ax, 35, 25, 45, 50, color='#ffcccc' if defect_type != 'normal' else '#80c0ff')
+    ax.add_patch(Rectangle((25, 15), 65, 10, facecolor='#c0c0c0', edgecolor='black'))
+    
+    if defect_type == 'layer_shifting':
+        add_layer_shifting(ax, 15, 0, 45)
+    elif defect_type == 'warping':
+        create_3d_printing_object(ax, 35, 25, 45, 50, color='#ffcccc')
+        add_warping(ax, 'left')
+    elif defect_type == 'stringing':
+        add_stringing(ax)
+    elif defect_type == 'cracking':
+        add_cracking(ax)
+    elif defect_type == 'off_platform':
+        add_off_platform(ax)
+    
+    ax.set_title('(b) 疊加瑕疵特徵\n(幾何參數Γ_defect)', fontsize=9)
+    ax.axis('off')
+    
+    # 加入環境變異（PLA鏡面反射 + ABS啞光）
+    ax = axes[2]
+    ax.set_xlim(0, 100)
+    ax.set_ylim(0, 100)
+    ax.set_facecolor('#f0f0f0')
+    create_3d_printing_object(ax, 35, 25, 45, 50, color='#ffcccc' if defect_type != 'normal' else '#80c0ff')
+    ax.add_patch(Rectangle((25, 15), 65, 10, facecolor='#c0c0c0', edgecolor='black'))
+    
+    if defect_type == 'layer_shifting':
+        add_layer_shifting(ax, 15, 0, 45)
+    elif defect_type == 'warping':
+        add_warping(ax, 'left')
+    elif defect_type == 'stringing':
+        add_stringing(ax)
+    elif defect_type == 'cracking':
+        add_cracking(ax)
+    elif defect_type == 'off_platform':
+        add_off_platform(ax)
+    
+    # 添加環境參數效果
+    highlight = patches.Ellipse((65, 70), 20, 12, facecolor='white', alpha=0.5)
+    ax.add_patch(highlight)
+    shadow = patches.Polygon([[20, 60], [45, 80], [75, 60], [75, 40], [45, 20], [20, 40]], 
+                              facecolor='gray', alpha=0.3)
+    ax.add_patch(shadow)
+    ax.set_title('(c) 加入環境變異\n(環境參數Δ_env：鏡面反射+陰影)', fontsize=8)
+    ax.axis('off')
+    
+    # TDA最終擴充樣本
+    ax = axes[3]
+    ax.set_xlim(0, 100)
+    ax.set_ylim(0, 100)
+    ax.set_facecolor('#e8e8e8')
+    create_3d_printing_object(ax, 35, 25, 45, 50, color='#ff8888' if defect_type != 'normal' else '#80c0ff')
+    ax.add_patch(Rectangle((25, 15), 65, 10, facecolor='#b0b0b0', edgecolor='black'))
+    
+    if defect_type == 'layer_shifting':
+        add_layer_shifting(ax, 15, 0, 45)
+    elif defect_type == 'warping':
+        add_warping(ax, 'left')
+    elif defect_type == 'stringing':
+        add_stringing(ax)
+    elif defect_type == 'cracking':
+        add_cracking(ax)
+    elif defect_type == 'off_platform':
+        add_off_platform(ax)
+    
+    highlight2 = patches.Ellipse((65, 70), 20, 12, facecolor='white', alpha=0.4)
+    ax.add_patch(highlight2)
+    ax.set_title('(d) TDA最終擴充樣本\n(訓練用)', fontsize=10)
+    ax.axis('off')
+    
+    plt.suptitle(title, fontsize=12, fontweight='bold')
+    plt.tight_layout()
+    plt.savefig(f'TDA_Comparison_{defect_type}.png', dpi=300, bbox_inches='tight')
+    plt.show()
+
+
+# 產生層位移範例
+create_tda_comparison('layer_shifting', '圖3.3-1 TDA增補前後對照圖（以層位移瑕疵為例）')
